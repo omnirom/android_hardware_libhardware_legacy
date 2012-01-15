@@ -284,6 +284,8 @@ int wifi_load_driver()
 
     if (insmod(DRIVER_MODULE_PATH, module_arg2) < 0) {
 #else
+    property_set(DRIVER_PROP_NAME, "loading");
+
     if (insmod(DRIVER_MODULE_PATH, DRIVER_MODULE_ARG) < 0) {
 #endif
 
