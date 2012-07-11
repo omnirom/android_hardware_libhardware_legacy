@@ -116,6 +116,7 @@ public:
      * get the local time at which the next write to the audio driver will be
      * presented
      */
+#ifndef ICS_AUDIO_BLOB
     virtual status_t    getNextWriteTimestamp(int64_t *timestamp);
 #ifdef QCOM_HARDWARE
     virtual status_t    start() {return INVALID_OPERATION;}
@@ -128,6 +129,7 @@ public:
         *isAvail = true;
         return NO_ERROR;
     }
+#endif
 #endif
 };
 
