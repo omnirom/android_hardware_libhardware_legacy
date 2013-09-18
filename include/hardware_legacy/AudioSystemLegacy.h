@@ -91,7 +91,7 @@ public:
 #ifdef QCOM_HARDWARE
         INCALL_MUSIC     = 10,
 #endif
-#ifdef QCOM_FM_ENABLED
+#if defined(QCOM_FM_ENABLED) || defined(STE_FM)
         FM               = 11,
 #endif
         NUM_STREAM_TYPES
@@ -309,8 +309,6 @@ public:
         DEVICE_IN_VOICE_CALL = 0x4000000,
         DEVICE_IN_BACK_MIC = 0x8000000,
         DEVICE_IN_ANC_HEADSET = 0x10000000,
-        DEVICE_IN_FM_RX = 0x20000000,
-        DEVICE_IN_FM_RX_A2DP = 0x40000000,
         DEVICE_IN_DEFAULT = DEVICE_IN_BUILTIN_MIC,
         DEVICE_IN_ANLG_DOCK_HEADSET = 0x80000000,
         DEVICE_IN_PROXY = DEVICE_IN_ANLG_DOCK_HEADSET,
@@ -325,9 +323,9 @@ public:
         DEVICE_IN_BACK_MIC = 0x800000,
         DEVICE_IN_DEFAULT = 0x80000000,
 #endif
-
-#if defined (STE_FM)
-        DEVICE_IN_FM_RX = 0x1000000,
+#if defined(QCOM_FM_ENABLED) || defined(STE_FM)
+        DEVICE_IN_FM_RX = 0x20000000,
+        DEVICE_IN_FM_RX_A2DP = 0x40000000,
 #endif
 
         DEVICE_IN_ALL = (DEVICE_IN_COMMUNICATION | DEVICE_IN_AMBIENT | DEVICE_IN_BUILTIN_MIC |
