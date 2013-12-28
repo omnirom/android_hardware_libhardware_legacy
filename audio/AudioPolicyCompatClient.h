@@ -69,6 +69,9 @@ public:
                                      float volume,
                                      audio_io_handle_t output,
                                      int delayMs = 0);
+#ifdef QCOM_FM_ENABLED
+    virtual status_t setFmVolume(float volume, int delayMs = 0);
+#endif
     virtual status_t startTone(ToneGenerator::tone_type tone, AudioSystem::stream_type stream);
     virtual status_t stopTone();
     virtual status_t setVoiceVolume(float volume, int delayMs = 0);
