@@ -612,8 +612,7 @@ int phy_lookup()
         ALOGE("unexpected - found %d phys in /sys/class/ieee80211", n);
         for (i = 0; i < n; i++)
             free(namelist[i]);
-        if (n > 0)
-            free(namelist);
+        free(namelist);
         return -1;
     }
 
