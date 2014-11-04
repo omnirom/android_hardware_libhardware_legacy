@@ -35,7 +35,9 @@
 #endif
 
 #include "hardware_legacy/wifi.h"
+#ifdef LIBWPA_CLIENT_EXISTS
 #include "libwpa_client/wpa_ctrl.h"
+#endif
 
 #define LOG_TAG "WifiHW"
 #include "cutils/log.h"
@@ -48,12 +50,6 @@
 #include <sys/_system_properties.h>
 #endif
 
-static struct wpa_ctrl *ctrl_conn;
-static struct wpa_ctrl *monitor_conn;
-
-/* socket pair used to exit from a blocking read */
-static int exit_sockets[2];
-
 extern int do_dhcp();
 extern int ifc_init();
 extern void ifc_close();
@@ -64,6 +60,28 @@ extern int delete_module(const char *, unsigned int);
 void wifi_close_sockets();
 
 static int wifi_mode = 0;
+
+#ifndef LIBWPA_CLIENT_EXISTS
+#define WPA_EVENT_TERMINATING "CTRL-EVENT-TERMINATING "
+struct wpa_ctrl {};
+void wpa_ctrl_cleanup(void) {}
+struct wpa_ctrl *wpa_ctrl_open(const char *ctrl_path) { return NULL; }
+void wpa_ctrl_close(struct wpa_ctrl *ctrl) {}
+int wpa_ctrl_request(struct wpa_ctrl *ctrl, const char *cmd, size_t cmd_len,
+	char *reply, size_t *reply_len, void (*msg_cb)(char *msg, size_t len))
+	{ return 0; }
+int wpa_ctrl_attach(struct wpa_ctrl *ctrl) { return 0; }
+int wpa_ctrl_detach(struct wpa_ctrl *ctrl) { return 0; }
+int wpa_ctrl_recv(struct wpa_ctrl *ctrl, char *reply, size_t *reply_len)
+	{ return 0; }
+int wpa_ctrl_get_fd(struct wpa_ctrl *ctrl) { return 0; }
+#endif
+
+static struct wpa_ctrl *ctrl_conn;
+static struct wpa_ctrl *monitor_conn;
+
+/* socket pair used to exit from a blocking read */
+static int exit_sockets[2];
 
 static char primary_iface[PROPERTY_VALUE_MAX];
 // TODO: use new ANDROID_SOCKET mechanism, once support for multiple
@@ -391,84 +409,6 @@ int ensure_entropy_file_exists()
     return 0;
 }
 
-int update_ctrl_interface(const char *config_file) {
-
-    int srcfd, destfd;
-    int nread;
-    char ifc[PROPERTY_VALUE_MAX];
-    char *pbuf;
-    char *sptr;
-    struct stat sb;
-    int ret;
-
-    if (stat(config_file, &sb) != 0)
-        return -1;
-
-    pbuf = malloc(sb.st_size + PROPERTY_VALUE_MAX);
-    if (!pbuf)
-        return 0;
-    srcfd = TEMP_FAILURE_RETRY(open(config_file, O_RDONLY));
-    if (srcfd < 0) {
-        ALOGE("Cannot open \"%s\": %s", config_file, strerror(errno));
-        free(pbuf);
-        return 0;
-    }
-    nread = TEMP_FAILURE_RETRY(read(srcfd, pbuf, sb.st_size));
-    close(srcfd);
-    if (nread < 0) {
-        ALOGE("Cannot read \"%s\": %s", config_file, strerror(errno));
-        free(pbuf);
-        return 0;
-    }
-
-    if (!strcmp(config_file, SUPP_CONFIG_FILE)) {
-        property_get("wifi.interface", ifc, WIFI_TEST_INTERFACE);
-    } else {
-        strcpy(ifc, CONTROL_IFACE_PATH);
-    }
-    /* Assume file is invalid to begin with */
-    ret = -1;
-    /*
-     * if there is a "ctrl_interface=<value>" entry, re-write it ONLY if it is
-     * NOT a directory.  The non-directory value option is an Android add-on
-     * that allows the control interface to be exchanged through an environment
-     * variable (initialized by the "init" program when it starts a service
-     * with a "socket" option).
-     *
-     * The <value> is deemed to be a directory if the "DIR=" form is used or
-     * the value begins with "/".
-     */
-    if ((sptr = strstr(pbuf, "ctrl_interface="))) {
-        ret = 0;
-        if ((!strstr(pbuf, "ctrl_interface=DIR=")) &&
-                (!strstr(pbuf, "ctrl_interface=/"))) {
-            char *iptr = sptr + strlen("ctrl_interface=");
-            int ilen = 0;
-            int mlen = strlen(ifc);
-            int nwrite;
-            if (strncmp(ifc, iptr, mlen) != 0) {
-                ALOGE("ctrl_interface != %s", ifc);
-                while (((ilen + (iptr - pbuf)) < nread) && (iptr[ilen] != '\n'))
-                    ilen++;
-                mlen = ((ilen >= mlen) ? ilen : mlen) + 1;
-                memmove(iptr + mlen, iptr + ilen + 1, nread - (iptr + ilen + 1 - pbuf));
-                memset(iptr, '\n', mlen);
-                memcpy(iptr, ifc, strlen(ifc));
-                destfd = TEMP_FAILURE_RETRY(open(config_file, O_RDWR, 0660));
-                if (destfd < 0) {
-                    ALOGE("Cannot update \"%s\": %s", config_file, strerror(errno));
-                    free(pbuf);
-                    return -1;
-                }
-                TEMP_FAILURE_RETRY(write(destfd, pbuf, nread + mlen - ilen -1));
-                close(destfd);
-            }
-        }
-    }
-    free(pbuf);
-    return ret;
-}
-
 int ensure_config_file_exists(const char *config_file)
 {
     char buf[2048];
@@ -484,14 +424,7 @@ int ensure_config_file_exists(const char *config_file)
             ALOGE("Cannot set RW to \"%s\": %s", config_file, strerror(errno));
             return -1;
         }
-        /* return if we were able to update control interface properly */
-        if (update_ctrl_interface(config_file) >=0) {
-            return 0;
-        } else {
-            /* This handles the scenario where the file had bad data
-             * for some reason. We continue and recreate the file.
-             */
-        }
+        return 0;
     } else if (errno != ENOENT) {
         ALOGE("Cannot access \"%s\": %s", config_file, strerror(errno));
         return -1;
@@ -538,7 +471,7 @@ int ensure_config_file_exists(const char *config_file)
         unlink(config_file);
         return -1;
     }
-    return update_ctrl_interface(config_file);
+    return 0;
 }
 
 #ifdef USES_TI_MAC80211
@@ -781,7 +714,7 @@ int wifi_start_supplicant(int p2p_supported)
     }
 
     /* Check whether already running */
-    if (property_get(supplicant_name, supp_status, NULL)
+    if (property_get(supplicant_prop_name, supp_status, NULL)
             && strcmp(supp_status, "running") == 0) {
         return 0;
     }
@@ -833,12 +766,16 @@ int wifi_start_supplicant(int p2p_supported)
             pi = __system_property_find(supplicant_prop_name);
         }
         if (pi != NULL) {
-            __system_property_read(pi, NULL, supp_status);
-            if (strcmp(supp_status, "running") == 0) {
-                return 0;
-            } else if (__system_property_serial(pi) != serial &&
-                    strcmp(supp_status, "stopped") == 0) {
-                return -1;
+            /*
+             * property serial updated means that init process is scheduled
+             * after we sched_yield, further property status checking is based on this */
+            if (__system_property_serial(pi) != serial) {
+                __system_property_read(pi, NULL, supp_status);
+                if (strcmp(supp_status, "running") == 0) {
+                    return 0;
+                } else if (strcmp(supp_status, "stopped") == 0) {
+                    return -1;
+                }
             }
         }
 #else
@@ -967,6 +904,18 @@ int wifi_send_command(const char *cmd, char *reply, size_t *reply_len)
     return 0;
 }
 
+int wifi_supplicant_connection_active()
+{
+    char supp_status[PROPERTY_VALUE_MAX] = {'\0'};
+
+    if (property_get(supplicant_prop_name, supp_status, NULL)) {
+        if (strcmp(supp_status, "stopped") == 0)
+            return -1;
+    }
+
+    return 0;
+}
+
 int wifi_ctrl_recv(char *reply, size_t *reply_len)
 {
     int res;
@@ -978,11 +927,21 @@ int wifi_ctrl_recv(char *reply, size_t *reply_len)
     rfds[0].events |= POLLIN;
     rfds[1].fd = exit_sockets[1];
     rfds[1].events |= POLLIN;
-    res = TEMP_FAILURE_RETRY(poll(rfds, 2, -1));
-    if (res < 0) {
-        ALOGE("Error poll = %d", res);
-        return res;
-    }
+    do {
+        res = TEMP_FAILURE_RETRY(poll(rfds, 2, 30000));
+        if (res < 0) {
+            ALOGE("Error poll = %d", res);
+            return res;
+        } else if (res == 0) {
+            /* timed out, check if supplicant is active
+             * or not ..
+             */
+            res = wifi_supplicant_connection_active();
+            if (res < 0)
+                return -2;
+        }
+    } while (res == 0);
+
     if (rfds[0].revents & POLLIN) {
         return wpa_ctrl_recv(monitor_conn, reply, reply_len);
     }
@@ -1000,26 +959,30 @@ int wifi_wait_on_socket(char *buf, size_t buflen)
     char *match, *match2;
 
     if (monitor_conn == NULL) {
-        return snprintf(buf, buflen, WPA_EVENT_TERMINATING " - connection closed");
+        return snprintf(buf, buflen, "IFNAME=%s %s - connection closed",
+                        primary_iface, WPA_EVENT_TERMINATING);
     }
 
     result = wifi_ctrl_recv(buf, &nread);
 
     /* Terminate reception on exit socket */
     if (result == -2) {
-        return snprintf(buf, buflen, WPA_EVENT_TERMINATING " - connection closed");
+        return snprintf(buf, buflen, "IFNAME=%s %s - connection closed",
+                        primary_iface, WPA_EVENT_TERMINATING);
     }
 
     if (result < 0) {
         ALOGD("wifi_ctrl_recv failed: %s\n", strerror(errno));
-        return snprintf(buf, buflen, WPA_EVENT_TERMINATING " - recv error");
+        return snprintf(buf, buflen, "IFNAME=%s %s - recv error",
+                        primary_iface, WPA_EVENT_TERMINATING);
     }
     buf[nread] = '\0';
     /* Check for EOF on the socket */
     if (result == 0 && nread == 0) {
         /* Fabricate an event to pass up */
         ALOGD("Received EOF on supplicant socket\n");
-        return snprintf(buf, buflen, WPA_EVENT_TERMINATING " - signal 0 received");
+        return snprintf(buf, buflen, "IFNAME=%s %s - signal 0 received",
+                        primary_iface, WPA_EVENT_TERMINATING);
     }
     /*
      * Events strings are in the format

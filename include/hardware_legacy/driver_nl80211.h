@@ -1,6 +1,6 @@
 /*
  * Driver interaction with Linux nl80211/cfg80211
- * Copyright (c) 2002-2012, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2002-2014, Jouni Malinen <j@w1.fi>
  * Copyright (c) 2003-2004, Instant802 Networks, Inc.
  * Copyright (c) 2005-2006, Devicescape Software, Inc.
  * Copyright (c) 2007, Johannes Berg <johannes@sipsolutions.net>
@@ -31,6 +31,8 @@
 #include "common.h"
 #include "eloop.h"
 #include "utils/list.h"
+#include "common/qca-vendor.h"
+#include "common/qca-vendor-attr.h"
 #include "common/ieee802_11_defs.h"
 #include "common/ieee802_11_common.h"
 #include "l2_packet/l2_packet.h"
@@ -99,10 +101,14 @@ struct i802_bss {
 	unsigned int added_bridge:1;
 	unsigned int in_deinit:1;
 	unsigned int wdev_id_set:1;
+	unsigned int added_if:1;
+	unsigned int static_ap:1;
 
 	u8 addr[ETH_ALEN];
 
 	int freq;
+	int bandwidth;
+	int if_dynamic;
 
 	void *ctx;
 	struct nl_handle *nl_preq, *nl_mgmt;
@@ -131,6 +137,11 @@ struct wpa_driver_nl80211_data {
 	int operstate;
 
 	int scan_complete_events;
+	enum scan_states {
+		NO_SCAN, SCAN_REQUESTED, SCAN_STARTED, SCAN_COMPLETED,
+		SCAN_ABORTED, SCHED_SCAN_STARTED, SCHED_SCAN_STOPPED,
+		SCHED_SCAN_RESULTS
+	} scan_state;
 
 	struct nl_cb *nl_cb;
 
@@ -159,7 +170,15 @@ struct wpa_driver_nl80211_data {
 	unsigned int retry_auth:1;
 	unsigned int use_monitor:1;
 	unsigned int ignore_next_local_disconnect:1;
+	unsigned int ignore_next_local_deauth:1;
 	unsigned int allow_p2p_device:1;
+	unsigned int hostapd:1;
+	unsigned int start_mode_ap:1;
+	unsigned int start_iface_up:1;
+	unsigned int test_use_roc_tx:1;
+	unsigned int ignore_deauth_event:1;
+	unsigned int dfs_vendor_cmd_avail:1;
+	unsigned int have_low_prio_scan:1;
 
 	u64 remain_on_chan_cookie;
 	u64 send_action_cookie;
@@ -169,20 +188,15 @@ struct wpa_driver_nl80211_data {
 	struct wpa_driver_scan_filter *filter_ssids;
 	size_t num_filter_ssids;
 
-	struct i802_bss first_bss;
+	struct i802_bss *first_bss;
 
 	int eapol_tx_sock;
 
-#ifdef HOSTAPD
 	int eapol_sock; /* socket for EAPOL frames */
 
 	int default_if_indices[16];
 	int *if_indices;
 	int num_if_indices;
-
-	int last_freq;
-	int last_freq_ht;
-#endif /* HOSTAPD */
 
 	/* From failed authentication command */
 	int auth_freq;
