@@ -265,13 +265,21 @@ public:
                                 uint32_t *channels=0,
                                 uint32_t *sampleRate=0,
                                 status_t *status=0) = 0;
+
     virtual AudioStreamOut* openOutputStreamWithFlags(
                                 uint32_t devices,
                                 audio_output_flags_t flags=(audio_output_flags_t)0,
                                 int *format=0,
                                 uint32_t *channels=0,
                                 uint32_t *sampleRate=0,
+#ifdef USE_OLD_LIBAUDIO
+                                status_t *status=0);
+#else
                                 status_t *status=0) = 0;
+#endif
+    virtual    void        closeOutputStream(AudioStreamOut* out) = 0;
+
+
     virtual    void        closeOutputStream(AudioStreamOut* out) = 0;
 
     /** This method creates and opens the audio hardware input stream */
