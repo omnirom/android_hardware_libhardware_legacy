@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6b22818b_1986ade1",
+        "filename": "include/hardware_legacy/AudioHardwareInterface.h",
+        "patchSetId": 1
+      },
+      "lineNbr": 125,
+      "author": {
+        "id": 1001148
+      },
+      "writtenOn": "2015-03-13T22:59:40Z",
+      "side": 1,
+      "message": "Change to QCOM_HARDWARE ?",
+      "range": {
+        "startLine": 125,
+        "startChar": 7,
+        "endLine": 125,
+        "endChar": 23
+      },
+      "revId": "ea612211d764e5011911e1094f72d92f0b68d889",
+      "serverId": "56841c99-7c94-43d4-bf0b-cb4707e66d55",
+      "unresolved": false
+    }
+  ]
+}
