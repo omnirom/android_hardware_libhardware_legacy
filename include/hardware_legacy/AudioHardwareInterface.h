@@ -122,9 +122,9 @@ public:
     /**
      * Return a recent count of the number of audio frames presented to an external observer.
      */
-    virtual status_t    getPresentationPosition(uint64_t *frames, struct timespec *timestamp);
 
 #ifdef QCOM_HARDWARE
+    virtual status_t    getPresentationPosition(uint64_t *frames, struct timespec *timestamp);
     virtual status_t    start() {return INVALID_OPERATION;}
     virtual status_t    pause()  {return INVALID_OPERATION;}
     virtual status_t    flush()  {return INVALID_OPERATION;}
