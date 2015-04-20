@@ -293,10 +293,9 @@ public:
     /**This method dumps the state of the audio hardware */
     virtual status_t dumpState(int fd, const Vector<String16>& args) = 0;
 
-    static AudioHardwareInterface* create();
-
-#ifndef TARGET_LEGACY_UNSUPPORTED_LIBAUDIO
     virtual status_t setMasterMute(bool muted) = 0;
+
+    static AudioHardwareInterface* create();
 
     virtual int createAudioPatch(unsigned int num_sources,
                                const struct audio_port_config *sources,
@@ -309,7 +308,6 @@ public:
     virtual int getAudioPort(struct audio_port *port) = 0;
 
     virtual int setAudioPortConfig(const struct audio_port_config *config) = 0;
-#endif
 
 protected:
 
