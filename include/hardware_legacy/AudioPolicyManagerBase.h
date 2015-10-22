@@ -1,7 +1,5 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
- * Not a Contribution.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -364,7 +362,7 @@ protected:
 
         // change the route of the specified output. Returns the number of ms we have slept to
         // allow new routing to take effect in certain cases.
-        virtual uint32_t setOutputDevice(audio_io_handle_t output,
+        uint32_t setOutputDevice(audio_io_handle_t output,
                              audio_devices_t device,
                              bool force = false,
                              int delayMs = 0);
@@ -385,7 +383,7 @@ protected:
         virtual float computeVolume(int stream, int index, audio_io_handle_t output, audio_devices_t device);
 
         // check that volume change is permitted, compute and send new volume to audio hardware
-        virtual status_t checkAndSetVolume(int stream, int index, audio_io_handle_t output, audio_devices_t device, int delayMs = 0, bool force = false);
+        status_t checkAndSetVolume(int stream, int index, audio_io_handle_t output, audio_devices_t device, int delayMs = 0, bool force = false);
 
         // apply all stream volumes to the specified output and device
         void applyStreamVolumes(audio_io_handle_t output, audio_devices_t device, int delayMs = 0, bool force = false);
@@ -398,7 +396,7 @@ protected:
                              audio_devices_t device = (audio_devices_t)0);
 
         // Mute or unmute the stream on the specified output
-        virtual void setStreamMute(int stream,
+        void setStreamMute(int stream,
                            bool on,
                            audio_io_handle_t output,
                            int delayMs = 0,
@@ -527,7 +525,7 @@ protected:
         void loadGlobalConfig(cnode *root);
         status_t loadAudioPolicyConfig(const char *path);
         void defaultAudioPolicyConfig(void);
-        static bool isVirtualInputDevice(audio_devices_t device);
+
 
         AudioPolicyClientInterface *mpClientInterface;  // audio policy client interface
         audio_io_handle_t mPrimaryOutput;              // primary output handle
@@ -596,6 +594,7 @@ private:
         // updates device caching and output for streams that can influence the
         //    routing of notifications
         void handleNotificationRoutingForStream(AudioSystem::stream_type stream);
+        static bool isVirtualInputDevice(audio_devices_t device);
 };
 
 };
