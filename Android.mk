@@ -14,6 +14,11 @@ LOCAL_SHARED_LIBRARIES := libcutils liblog
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 
+ifeq ($(KERNEL_HAS_FINIT_MODULE), false)
+LOCAL_CFLAGS += -DNO_FINIT_MODULE
+endif
+
+
 ifdef USES_TI_MAC80211
 LOCAL_STATIC_LIBRARIES := libnl_2
 LOCAL_C_INCLUDES += external/libnl-headers
